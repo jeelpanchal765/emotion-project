@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EmoSense — Emotion Recognition</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --border: #cbd5e1;
+      --accent: #2563eb;
+      --accent2: #e11d48;
+      --accent3: #d97706;
+      --text: #0f172a;
+      --muted: #64748b;
+      --joy: #d97706;
+      --sad: #4fc3f7;
+      --angry: #e11d48;
+      --surprised: #ff9a3c;
+      --fearful: #b388ff;
+      --disgusted: #69f0ae;
+      --neutral: #90a4ae;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(37, 99, 235, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 255, 225, 0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    header {
+      position: relative;
+      z-index: 10;
+      padding: 2rem 2.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+        box-shadow: 0 0 12px var(--accent);
+      }
+
+      50% {
+        opacity: 0.5;
+        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
+      }
+    }
+
+    .logo-text {
+      font-size: 1.4rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+
+    .logo-text span {
+      color: var(--accent);
+    }
+
+    .status-badge {
+      margin-left: auto;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.35rem 0.8rem;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--muted);
+    }
+
+    .status-dot.ready {
+      background: var(--accent);
+      box-shadow: 0 0 6px var(--accent);
+    }
+
+    .status-dot.loading {
+      background: var(--accent3);
+      animation: pulse 1s infinite;
+    }
+
+    main {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 3rem 2rem;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 2rem;
+    }
+
+    @media (max-width: 768px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+
+      header {
+        padding: 1.5rem;
+      }
+    }
+
+    /* Camera Panel */
+    .camera-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .camera-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    .camera-wrapper {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      aspect-ratio: 4/3;
+    }
+
+    .camera-wrapper::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(0, 255, 225, 0.04) 0%, transparent 60%);
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* Corner accents */
+    .corner {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      z-index: 5;
+      pointer-events: none;
+    }
+
+    .corner.tl {
+      top: 12px;
+      left: 12px;
+      border-top: 2px solid var(--accent);
+      border-left: 2px solid var(--accent);
+    }
+
+    .corner.tr {
+      top: 12px;
+      right: 12px;
+      border-top: 2px solid var(--accent);
+      border-right: 2px solid var(--accent);
+    }
+
+    .corner.bl {
+      bottom: 12px;
+      left: 12px;
+      border-bottom: 2px solid var(--accent);
+      border-left: 2px solid var(--accent);
+    }
+
+    .corner.br {
+      bottom: 12px;
+      right: 12px;
+      border-bottom: 2px solid var(--accent);
+      border-right: 2px solid var(--accent);
+    }
+
+    #video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transform: scaleX(-1);
+    }
+
+    #canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      transform: scaleX(-1);
+      z-index: 3;
+    }
+
+    .placeholder-msg {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      z-index: 2;
+      color: var(--muted);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.8rem;
+      text-align: center;
+      padding: 2rem;
+    }
+
+    .placeholder-icon {
+      font-size: 3rem;
+      opacity: 0.3;
+    }
+
+    .btn-start {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 1rem 2.5rem;
+      font-family: 'Syne', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-start::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: white;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .btn-start:hover::after {
+      opacity: 0.15;
+    }
+
+    .btn-start:active {
+      transform: scale(0.98);
+    }
+
+    .btn-start:disabled {
+      background: var(--muted);
+      cursor: not-allowed;
+    }
+
+    .btn-stop {
+      background: transparent;
+      color: var(--accent2);
+      border: 1px solid var(--accent2);
+      padding: 0.6rem 1.5rem;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.75rem;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: all 0.2s;
+    }
+
+    .btn-stop:hover {
+      background: rgba(225, 29, 72, 0.1);
+    }
+
+    .controls {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    /* Emotion Panel */
+    .emotion-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .panel-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1.5rem;
+    }
+
+    .card-title {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--muted);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-bottom: 1.2rem;
+    }
+
+    /* Primary emotion display */
+    .primary-emotion {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 1rem 0;
+    }
+
+    .emotion-emoji {
+      font-size: 4rem;
+      line-height: 1;
+      transition: all 0.3s ease;
+      filter: drop-shadow(0 0 20px currentColor);
+    }
+
+    .emotion-name {
+      font-size: 1.8rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      text-transform: uppercase;
+      transition: color 0.3s;
+    }
+
+    .emotion-confidence {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    /* Emotion bars */
+    .emotion-bars {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+
+    .emotion-row {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .emotion-row-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .emotion-row-name {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: capitalize;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .emotion-row-pct {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+
+    .bar-bg {
+      height: 4px;
+      background: var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.3s ease;
+    }
+
+    /* Face info */
+    .face-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.8rem;
+    }
+
+    .stat-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 0.8rem;
+      border-radius: 2px;
+    }
+
+    .stat-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.6rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 0.3rem;
+    }
+
+    .stat-value {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    /* Loading overlay */
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      gap: 1.5rem;
+      transition: opacity 0.5s;
+    }
+
+    .loading-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .load-title {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--accent);
+    }
+
+    .load-sub {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .progress-bar-wrap {
+      width: 280px;
+      height: 2px;
+      background: var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-bar-inner {
+      height: 100%;
+      background: var(--accent);
+      width: 0%;
+      transition: width 0.4s ease;
+      box-shadow: 0 0 10px var(--accent);
+    }
+
+    .scan-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      animation: scan 3s linear infinite;
+      opacity: 0;
+      z-index: 4;
+      pointer-events: none;
+    }
+
+    .scan-line.active {
+      opacity: 1;
+    }
+
+    @keyframes scan {
+      0% {
+        top: 0;
+      }
+
+      100% {
+        top: 100%;
+      }
+    }
+
+    .no-face-msg {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--accent2);
+      background: rgba(255, 45, 120, 0.1);
+      border: 1px solid rgba(225, 29, 72, 0.3);
+      padding: 0.3rem 0.8rem;
+      border-radius: 999px;
+      z-index: 6;
+      display: none;
+      white-space: nowrap;
+    }
+
+    /* ── AUTH ── */
+    .page { display:none; }
+    .page.active { display:flex; }
+    #pg-app.page.active { display:block; }
+    #pg-login, #pg-signup {
+      min-height:100vh; align-items:stretch; position:relative; z-index:1;
+      background: radial-gradient(circle at 20% 50%, rgba(37, 99, 235, 0.1), transparent 40%),
+                  radial-gradient(circle at 80% 20%, rgba(225, 29, 72, 0.1), transparent 40%),
+                  var(--bg);
+    }
+    .auth-left {
+      width:45%; background:rgba(15,15,26,0.5); border-right:1px solid rgba(255,255,255,0.05);
+      backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      padding:3rem; gap:1.5rem;
+    }
+    .auth-big { font-size:6rem; animation:authfloat 5s ease-in-out infinite; }
+    @keyframes authfloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-15px)} }
+    .auth-tag { font-size:2.2rem; font-weight:800; text-align:center; line-height:1.4; letter-spacing:-0.02em; }
+    .auth-tag span { color:var(--accent); text-shadow: 0 0 20px rgba(0,255,225,0.4); }
+    .pills { display:flex; flex-wrap:wrap; gap:0.6rem; justify-content:center; margin-top:1rem; }
+    .pill { font-size:0.75rem; padding:0.4rem 1rem; border-radius:999px; border:1px solid; opacity:0.9; font-weight:600; background:rgba(0,0,0,0.3); backdrop-filter:blur(5px); }
+
+    .auth-right { flex:1; display:flex; align-items:center; justify-content:center; padding:2rem; }
+    .auth-box { 
+      width:100%; max-width:420px; 
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      box-shadow: 0 8px 32px rgba(255, 255, 255, 1);
+      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+      padding: 3rem 2.5rem; border-radius: 16px; 
+    }
+    .a-logo { font-size:1.8rem; font-weight:800; color:var(--accent); margin-bottom:2rem; text-align:center; }
+    .a-logo span { color:var(--text); }
+    .a-title { font-size:2rem; font-weight:800; margin-bottom:0.4rem; text-align:center; letter-spacing:-0.02em; }
+    .a-sub { font-size:0.8rem; color:var(--muted); margin-bottom:2rem; font-family:monospace; text-align:center; }
+    .fg { margin-bottom:1.2rem; }
+    .fl { display:block; font-size:0.7rem; color:var(--muted); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:0.5rem; font-family:monospace; font-weight:bold; }
+    .fi {
+      width:100%; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.1); color:var(--text);
+      font-size:0.95rem; padding:0.9rem 1rem; border-radius:8px; outline:none;
+      transition:all 0.3s;
+    }
+    .fi:focus { border-color:var(--accent); background:rgba(0,0,0,0.4); box-shadow: 0 0 15px rgba(0,255,225,0.1); }
+    .fi::placeholder { color:rgba(255,255,255,0.3); }
+    .btn-p {
+      width:100%; background:linear-gradient(135deg, var(--accent), #60a5fa); color:#fff; border:none; padding:1rem;
+      font-size:1rem; font-weight:800; cursor:pointer; border-radius:8px; text-transform: uppercase; letter-spacing: 0.05em;
+      transition:all 0.3s; margin-top:0.5rem; box-shadow: 0 4px 15px rgba(0,255,225,0.3);
+    }
+    .btn-p:hover { box-shadow:0 6px 25px rgba(0,255,225,0.5); transform: translateY(-2px); }
+    .a-sw { text-align:center; margin-top:1.5rem; font-size:0.85rem; color:var(--muted); }
+    .a-sw a { color:var(--accent); cursor:pointer; font-weight:600; transition:all 0.2s; }
+    .a-sw a:hover { color:#fff; text-decoration:underline; }
+    .a-demo { text-align:center; margin-top:0.8rem; }
+    .a-demo a { color:var(--accent3); font-size:0.8rem; cursor:pointer; font-family:monospace; font-weight:600; transition:all 0.2s; }
+    .a-demo a:hover { text-decoration:underline; }
+    .err { background:rgba(255,45,120,0.15); border:1px solid rgba(255,45,120,0.4); color:var(--accent2); font-size:0.75rem; padding:0.8rem 1rem; border-radius:8px; margin-bottom:1.2rem; display:none; font-weight:600; text-align:center; }
+    .err.show { display:block; animation:shake 0.4s ease-in-out; }
+    
+    /* toast */
+    .toast { position:fixed; bottom:1.5rem; right:1.5rem; z-index:999; background:rgba(0,255,225,0.1); border:1px solid var(--accent); color:var(--accent); font-size:0.72rem; padding:0.7rem 1.3rem; border-radius:3px; display:none; font-family:monospace; }
+
+    /* Modal */
+    .modal-overlay {
+      position:fixed; top:0; left:0; width:100%; height:100%;
+      background:rgba(10,10,16,0.8); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+      z-index:9999; display:none; align-items:center; justify-content:center;
+    }
+    .modal-overlay.active { display:flex; animation:modalfade 0.3s ease; }
+    @keyframes modalfade { from{opacity:0; transform:scale(0.95);} to{opacity:1; transform:scale(1);} }
+    .modal {
+      width:90%; max-width:500px; background:rgba(22,22,37,0.95);
+      border:1px solid rgba(255,255,255,0.1); border-radius:12px;
+      padding:2rem; box-shadow:0 10px 40px rgba(0,0,0,0.5); position:relative;
+    }
+    .modal-close {
+      position:absolute; top:1rem; right:1.5rem; background:transparent;
+      border:none; color:var(--muted); font-size:1.5rem; cursor:pointer; transition:color 0.2s;
+    }
+    .modal-close:hover { color:#fff; }
+    .modal-title { font-size:1.5rem; font-weight:800; margin-bottom:1.5rem; color:var(--text); letter-spacing:-0.02em; text-align:center; }
+    .hist-list { max-height:350px; overflow-y:auto; padding-right:0.5rem; display:flex; flex-direction:column; gap:0.5rem; }
+    .hist-item {
+      display:flex; justify-content:space-between; align-items:center;
+      background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.05);
+      padding:1rem; border-radius:8px;
+    }
+    .hist-item .h-emo { font-size:1.2rem; font-weight:800; display:flex; align-items:center; gap:0.8rem; text-transform:uppercase; }
+    .hist-item .h-emo span { font-size:1.8rem; }
+    .hist-item .h-date { font-size:0.75rem; color:var(--muted); font-family:'Space Mono',monospace; text-align:right;}
+    .hist-empty { color:var(--muted); font-size:0.9rem; text-align:center; padding:2rem; font-family:'Space Mono',monospace; }
+
+    .btn-hist {
+      background:rgba(0,255,225,0.1); color:var(--accent); border:1px solid var(--accent);
+      padding:1rem 2.5rem; font-family:'Syne',sans-serif; font-size:0.9rem; font-weight:700;
+      letter-spacing:0.05em; cursor:pointer; border-radius:2px; transition:all 0.2s;
+      text-transform:uppercase; margin-left:1rem;
+    }
+</style>
+</head>
+
+<body>
+
+  <!-- LOGIN -->
+  <div id="pg-login" class="page active">
+    <div class="auth-left">
+      <div class="auth-big">🎭</div>
+      <div class="auth-tag">Read Every<br><span>Emotion</span><br>In Real Time</div>
+      <div class="pills">
+        <div class="pill" style="color:var(--joy);border-color:var(--joy)">😄 Happy</div>
+        <div class="pill" style="color:var(--sad);border-color:var(--sad)">😢 Sad</div>
+        <div class="pill" style="color:var(--angry);border-color:var(--angry)">😠 Angry</div>
+        <div class="pill" style="color:var(--surprised);border-color:var(--surprised)">😲 Surprised</div>
+        <div class="pill" style="color:var(--fearful);border-color:var(--fearful)">😨 Fearful</div>
+      </div>
+    </div>
+    <div class="auth-right">
+      <div class="auth-box">
+        <div class="a-logo">Emo<span>Sense</span></div>
+        <div class="a-title">Welcome Back</div>
+        <div class="a-sub">// sign in to continue</div>
+        <div class="err" id="loginErr">Invalid email or password</div>
+        <div class="fg"><label class="fl">Email</label><input class="fi" type="email" id="lEmail" placeholder="you@gmail.com"></div>
+        <div class="fg"><label class="fl">Password</label><input class="fi" type="password" id="lPass" placeholder="••••••••"></div>
+        <button class="btn-p" onclick="doLogin()">Sign In →</button>
+        <div class="a-sw">Don't have an account? <a onclick="SP('pg-signup')">Sign up</a></div>
+        <div class="a-demo"><a onclick="demoLogin()">→ Try Demo Account</a></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIGNUP -->
+  <div id="pg-signup" class="page">
+    <div class="auth-left">
+      <div class="auth-big">✨</div>
+      <div class="auth-tag">Start Your<br><span>Emotion</span><br>Journey</div>
+      <div class="pills">
+        <div class="pill" style="color:var(--accent);border-color:var(--accent)">📊 Analytics</div>
+        <div class="pill" style="color:var(--accent3);border-color:var(--accent3)">📅 History</div>
+        <div class="pill" style="color:var(--accent2);border-color:var(--accent2)">👤 Profile</div>
+      </div>
+    </div>
+    <div class="auth-right">
+      <div class="auth-box">
+        <div class="a-logo">Emo<span>Sense</span></div>
+        <div class="a-title">Create Account</div>
+        <div class="a-sub">// join for free</div>
+        <div class="err" id="signupErr">Please fill all fields</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.9rem">
+          <div class="fg"><label class="fl">First Name</label><input class="fi" type="text" id="sFirst" placeholder="Raj"></div>
+          <div class="fg"><label class="fl">Last Name</label><input class="fi" type="text" id="sLast" placeholder="Patel"></div>
+        </div>
+        <div class="fg"><label class="fl">Email</label><input class="fi" type="email" id="sEmail" placeholder="you@gmail.com"></div>
+        <div class="fg"><label class="fl">Password</label><input class="fi" type="password" id="sPass" placeholder="min 6 characters"></div>
+        <button class="btn-p" onclick="doSignup()">Create Account →</button>
+        <div class="a-sw">Already have account? <a onclick="SP('pg-login')">Sign in</a></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="pg-app" class="page">
+
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay hidden" id="loadingOverlay">
+      <div class="load-title">EmoSense</div>
+      <div class="load-sub">Loading AI models<br>Please wait...</div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-inner" id="progressBar"></div>
+      </div>
+    </div>
+
+  <header>
+    <div class="logo-dot"></div>
+    <div class="logo-text">Emo<span>Sense</span></div>
+    
+    <div style="margin-left:auto; display:flex; align-items:center; gap:1.2rem;">
+      <div class="status-badge" style="margin-left:0;">
+        <div class="status-dot loading" id="statusDot"></div>
+        <span id="statusText">Loading Models</span>
+      </div>
+      <div style="font-family:'Space Mono',monospace; font-size:0.8rem; color:var(--text); letter-spacing:0.05em">HI, <span id="userGreeting" style="color:var(--accent);font-weight:700">USER</span></div>
+      <button onclick="showHistory()" style="background:transparent; border:1px solid var(--accent); color:var(--accent); padding:0.4rem 0.8rem; border-radius:4px; font-family:'Syne',sans-serif; font-size:0.75rem; font-weight:700; cursor:pointer; text-transform:uppercase; letter-spacing:0.05em; transition:all 0.2s;">History</button>
+      <button onclick="doLogout()" style="background:transparent; border:1px solid var(--border); color:var(--muted); padding:0.4rem 0.8rem; border-radius:4px; font-family:'Syne',sans-serif; font-size:0.75rem; font-weight:700; cursor:pointer; text-transform:uppercase; letter-spacing:0.05em; transition:all 0.2s;">Logout</button>
+    </div>
+  </header>
+
+
+  <main>
+    <!-- Left: Camera -->
+    <div class="camera-panel">
+      <div class="camera-label">// live feed</div>
+      <div class="camera-wrapper" id="cameraWrapper">
+        <div class="corner tl"></div>
+        <div class="corner tr"></div>
+        <div class="corner bl"></div>
+        <div class="corner br"></div>
+        <div class="scan-line" id="scanLine"></div>
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="canvas"></canvas>
+        <div class="placeholder-msg" id="placeholderMsg">
+          <div class="placeholder-icon">◎</div>
+          <div>Camera feed will appear here</div>
+          <div style="color: var(--muted); font-size: 0.7rem">Allow camera access when prompted</div>
+        </div>
+        <div class="no-face-msg" id="noFaceMsg">⚠ No face detected</div>
+      </div>
+
+      <div class="controls">
+        <button class="btn-start" id="btnStart" disabled>Activate Camera</button>
+        <button class="btn-stop" id="btnStop" style="display:none">■ Stop</button>
+        <button class="btn-hist" id="btnSaveHist" style="display:none" onclick="saveCurrentEmotion()">💾 Capture</button>
+      </div>
+    </div>
+
+    <!-- Right: Emotions -->
+    <div class="emotion-panel">
+
+      <!-- Primary emotion -->
+      <div class="panel-card">
+        <div class="card-title">// dominant emotion</div>
+        <div class="primary-emotion">
+          <div class="emotion-emoji" id="emojiDisplay">—</div>
+          <div class="emotion-name" id="emotionName">Waiting...</div>
+          <div class="emotion-confidence" id="emotionConf">CONFIDENCE: —</div>
+        </div>
+      </div>
+
+      <!-- Emotion bars -->
+      <div class="panel-card">
+        <div class="card-title">// emotion breakdown</div>
+        <div class="emotion-bars" id="emotionBars"></div>
+      </div>
+
+      <!-- Face stats -->
+      <div class="panel-card">
+        <div class="card-title">// face data</div>
+        <div class="face-stats">
+          <div class="stat-item">
+            <div class="stat-label">Faces</div>
+            <div class="stat-value" id="faceCount">—</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Gender</div>
+            <div class="stat-value" id="genderVal">—</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Age Est.</div>
+            <div class="stat-value" id="ageVal">—</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">FPS</div>
+            <div class="stat-value" id="fpsVal">—</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- History Modal -->
+  <div class="modal-overlay" id="histModal">
+    <div class="modal">
+      <button class="modal-close" onclick="closeHistory()">×</button>
+      <div class="modal-title">Your Emotion History</div>
+      <div class="hist-list" id="histList">
+        <!-- JS populates this -->
+      </div>
+    </div>
+  </div>
+
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
+
+    let users = JSON.parse(localStorage.getItem('emo_users')||'[]');
+    let cu = JSON.parse(localStorage.getItem('emo_cu')||'null');
+    let modelsLoaded = false;
+
+    function SP(id) {
+      document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    function toast(msg,err=false) {
+      const t=document.getElementById('toast');
+      if(!t) return;
+      t.textContent=msg; t.style.display='block';
+      t.style.color=err?'var(--accent2)':'var(--accent)';
+      t.style.borderColor=err?'var(--accent2)':'var(--accent)';
+      setTimeout(()=>t.style.display='none',3000);
+    }
+
+    function doLogin() {
+      const em=document.getElementById('lEmail').value.trim();
+      const pw=document.getElementById('lPass').value;
+      const err=document.getElementById('loginErr');
+      if(!em.endsWith('@gmail.com')){err.textContent='Only @gmail.com is allowed';err.classList.add('show');return;}
+      const u=users.find(x=>x.email===em&&x.password===pw);
+      if(!u){err.textContent='Invalid email or password';err.classList.add('show');return;}
+      err.classList.remove('show');
+      cu=u; localStorage.setItem('emo_cu',JSON.stringify(u)); enterApp();
+    }
+    function demoLogin() {
+      let d=users.find(u=>u.email==='demo@gmail.com');
+      if(!d){d={firstName:'Demo',lastName:'User',email:'demo@gmail.com',password:'demo123',joined:new Date().toLocaleDateString()};users.push(d);localStorage.setItem('emo_users',JSON.stringify(users));}
+      cu=d; localStorage.setItem('emo_cu',JSON.stringify(d)); enterApp();
+    }
+    function doSignup() {
+      const f=document.getElementById('sFirst').value.trim();
+      const l=document.getElementById('sLast').value.trim();
+      const e=document.getElementById('sEmail').value.trim();
+      const p=document.getElementById('sPass').value;
+      const err=document.getElementById('signupErr');
+      if(!f||!e||p.length<6){err.textContent='Fill all fields (password 6+ chars)';err.classList.add('show');return;}
+      if(!e.endsWith('@gmail.com')){err.textContent='Only @gmail.com is allowed';err.classList.add('show');return;}
+      if(users.find(u=>u.email===e)){err.textContent='Email already registered';err.classList.add('show');return;}
+      err.classList.remove('show');
+      const u={firstName:f,lastName:l,email:e,password:p,joined:new Date().toLocaleDateString()};
+      users.push(u); localStorage.setItem('emo_users',JSON.stringify(users));
+      cu=u; localStorage.setItem('emo_cu',JSON.stringify(u)); enterApp();
+    }
+    function doLogout() {
+      if(btnStop) btnStop.click();
+      cu=null; localStorage.removeItem('emo_cu'); SP('pg-login');
+    }
+    function enterApp() {
+      SP('pg-app');
+      if(document.getElementById('userGreeting')) document.getElementById('userGreeting').textContent = cu ? cu.firstName.toUpperCase() : 'USER';
+      if(!modelsLoaded) {
+        document.getElementById('loadingOverlay').classList.remove('hidden');
+        loadModels();
+      }
+    }
+
+
+
+
+    const emotions = ['neutral', 'happy', 'sad', 'angry', 'fearful', 'disgusted', 'surprised'];
+    const emojiMap = { neutral: '😐', happy: '😄', sad: '😢', angry: '😠', fearful: '😨', disgusted: '🤢', surprised: '😲' };
+    const colorMap = {
+      neutral: 'var(--neutral)',
+      happy: 'var(--joy)',
+      sad: 'var(--sad)',
+      angry: 'var(--angry)',
+      fearful: 'var(--fearful)',
+      disgusted: 'var(--disgusted)',
+      surprised: 'var(--surprised)'
+    };
+
+    let isRunning = false;
+    let animFrame;
+    let lastTs = 0;
+
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const overlay = document.getElementById('loadingOverlay');
+    const progressBar = document.getElementById('progressBar');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const btnStart = document.getElementById('btnStart');
+    const btnStop = document.getElementById('btnStop');
+    const placeholder = document.getElementById('placeholderMsg');
+    const scanLine = document.getElementById('scanLine');
+    const noFaceMsg = document.getElementById('noFaceMsg');
+
+    // Build initial bars
+    const barsContainer = document.getElementById('emotionBars');
+    emotions.forEach(e => {
+      barsContainer.innerHTML += `
+    <div class="emotion-row">
+      <div class="emotion-row-header">
+        <div class="emotion-row-name" style="color:${colorMap[e]}">${emojiMap[e]} ${e}</div>
+        <div class="emotion-row-pct" id="pct-${e}">0%</div>
+      </div>
+      <div class="bar-bg">
+        <div class="bar-fill" id="bar-${e}" style="width:0%;background:${colorMap[e]}"></div>
+      </div>
+    </div>`;
+    });
+
+    // Load models
+    async function loadModels() {
+      const steps = [
+        () => faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+        () => faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
+        () => faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
+        () => faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL),
+      ];
+      for (let i = 0; i < steps.length; i++) {
+        await steps[i]();
+        progressBar.style.width = ((i + 1) / steps.length * 100) + '%';
+      }
+      modelsLoaded = true;
+      setTimeout(() => {
+        overlay.classList.add('hidden');
+        statusDot.className = 'status-dot ready';
+        statusText.textContent = 'Models Ready';
+        btnStart.disabled = false;
+      }, 400);
+    }
+
+    btnStart.addEventListener('click', async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640 } });
+        video.srcObject = stream;
+        video.onloadedmetadata = () => {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          placeholder.style.display = 'none';
+          isRunning = true;
+          scanLine.classList.add('active');
+          btnStart.style.display = 'none';
+          btnStop.style.display = 'block';
+          document.getElementById('btnSaveHist').style.display = 'block';
+          statusText.textContent = 'Analyzing';
+          detect();
+        };
+      } catch (err) {
+        alert('Camera access denied or not available.\n' + err.message);
+      }
+    });
+
+    btnStop.addEventListener('click', () => {
+      isRunning = false;
+      cancelAnimationFrame(animFrame);
+      video.srcObject?.getTracks().forEach(t => t.stop());
+      video.srcObject = null;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      placeholder.style.display = 'flex';
+      scanLine.classList.remove('active');
+      btnStart.style.display = 'block';
+      btnStop.style.display = 'none';
+      document.getElementById('btnSaveHist').style.display = 'none';
+      statusText.textContent = 'Stopped';
+      resetUI();
+    });
+
+    function resetUI() {
+      document.getElementById('emojiDisplay').textContent = '—';
+      document.getElementById('emotionName').textContent = 'Waiting...';
+      document.getElementById('emotionConf').textContent = 'CONFIDENCE: —';
+      document.getElementById('emotionName').style.color = '';
+      document.getElementById('faceCount').textContent = '—';
+      document.getElementById('genderVal').textContent = '—';
+      document.getElementById('ageVal').textContent = '—';
+      document.getElementById('fpsVal').textContent = '—';
+      emotions.forEach(e => {
+        document.getElementById(`bar-${e}`).style.width = '0%';
+        document.getElementById(`pct-${e}`).textContent = '0%';
+      });
+    }
+
+    async function detect() {
+      if (!isRunning) return;
+
+      const now = performance.now();
+      const fps = Math.round(1000 / (now - lastTs));
+      lastTs = now;
+      document.getElementById('fpsVal').textContent = isFinite(fps) ? fps : '—';
+
+      const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
+
+      const detections = await faceapi.detectAllFaces(video, options)
+        .withFaceLandmarks(true)
+        .withFaceExpressions()
+        .withAgeAndGender();
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      document.getElementById('faceCount').textContent = detections.length;
+
+      if (detections.length === 0) {
+        noFaceMsg.style.display = 'block';
+        resetEmotionUI();
+      } else {
+        noFaceMsg.style.display = 'none';
+        const det = detections[0];
+
+        // Draw face box
+        const box = det.detection.box;
+        const scaleX = canvas.width / video.videoWidth;
+        const scaleY = canvas.height / video.videoHeight;
+        const x = box.x * scaleX, y = box.y * scaleY;
+        const w = box.width * scaleX, h = box.height * scaleY;
+
+        ctx.strokeStyle = 'rgba(0,255,225,0.8)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, w, h);
+
+        // Corner accents on face box
+        const cs = 16;
+        ctx.strokeStyle = 'var(--accent)';
+        ctx.lineWidth = 3;
+        [[x, y], [x + w - cs, y], [x, y + h - cs], [x + w - cs, y + h - cs]].forEach(([cx, cy], i) => {
+          ctx.beginPath();
+          if (i === 0) { ctx.moveTo(cx + cs, cy); ctx.lineTo(cx, cy); ctx.lineTo(cx, cy + cs); }
+          if (i === 1) { ctx.moveTo(cx, cy); ctx.lineTo(cx + cs, cy); ctx.lineTo(cx + cs, cy + cs); }
+          if (i === 2) { ctx.moveTo(cx, cy); ctx.lineTo(cx, cy + cs); ctx.lineTo(cx + cs, cy + cs); }
+          if (i === 3) { ctx.moveTo(cx, cy); ctx.lineTo(cx + cs, cy); ctx.lineTo(cx + cs, cy + cs); }
+          ctx.stroke();
+        });
+
+        // Expressions
+        const expr = det.expressions;
+        const sorted = Object.entries(expr).sort((a, b) => b[1] - a[1]);
+        const [topEmotion, topConf] = sorted[0];
+
+        document.getElementById('emojiDisplay').textContent = emojiMap[topEmotion] || '—';
+        document.getElementById('emotionName').textContent = topEmotion.toUpperCase();
+        document.getElementById('emotionName').style.color = colorMap[topEmotion] || '';
+        document.getElementById('emotionConf').textContent = `CONFIDENCE: ${(topConf * 100).toFixed(1)}%`;
+
+        // Update bars
+        emotions.forEach(e => {
+          const val = (expr[e] || 0) * 100;
+          document.getElementById(`bar-${e}`).style.width = val.toFixed(1) + '%';
+          document.getElementById(`pct-${e}`).textContent = val.toFixed(0) + '%';
+        });
+
+        // Age & gender
+        document.getElementById('ageVal').textContent = Math.round(det.age) + ' yrs';
+        document.getElementById('genderVal').textContent = det.gender === 'male' ? '♂ Male' : '♀ Female';
+      }
+
+      animFrame = requestAnimationFrame(detect);
+    }
+
+    function resetEmotionUI() {
+      document.getElementById('emojiDisplay').textContent = '?';
+      document.getElementById('emotionName').textContent = 'No Face';
+      document.getElementById('emotionName').style.color = 'var(--muted)';
+      document.getElementById('emotionConf').textContent = 'CONFIDENCE: —';
+      document.getElementById('genderVal').textContent = '—';
+      document.getElementById('ageVal').textContent = '—';
+    }
+
+    function saveCurrentEmotion() {
+      if(!cu) return;
+      const emo = document.getElementById('emotionName').textContent;
+      const conf = document.getElementById('emotionConf').textContent;
+      const emoRaw = emo.toLowerCase();
+      if(emo === 'NO FACE' || emo === 'WAITING...') {
+        toast('No face detected to capture', true);
+        return;
+      }
+      
+      const emoji = emojiMap[emoRaw] || '—';
+      const color = colorMap[emoRaw] || '#0f172a';
+      
+      if(!cu.history) cu.history = [];
+      cu.history.unshift({
+        emotion: emo,
+        emoji: emoji,
+        color: color,
+        conf: conf,
+        date: new Date().toLocaleString()
+      });
+      
+      localStorage.setItem('emo_users', JSON.stringify(users));
+      localStorage.setItem('emo_cu', JSON.stringify(cu));
+      
+      toast('Emotion Captured!', false);
+    }
+    
+    function showHistory() {
+      if(!cu) return;
+      const list = document.getElementById('histList');
+      list.innerHTML = '';
+      if(!cu.history || cu.history.length === 0) {
+        list.innerHTML = '<div class="hist-empty">No history recorded yet. Use the Capture button!</div>';
+      } else {
+        cu.history.forEach(item => {
+          list.innerHTML += `
+            <div class="hist-item">
+              <div class="h-emo" style="color: ${item.color}"><span>${item.emoji}</span>${item.emotion}</div>
+              <div class="h-date" style="text-align: right;">${item.conf}<br>${item.date}</div>
+            </div>
+          `;
+        });
+      }
+      document.getElementById('histModal').classList.add('active');
+    }
+    
+    function closeHistory() {
+      document.getElementById('histModal').classList.remove('active');
+    }
+
+    // Init
+    window.addEventListener('load', () => {
+      if(cu) enterApp(); else SP('pg-login');
+    });
+  </script>
+</body>
+
+</html>
